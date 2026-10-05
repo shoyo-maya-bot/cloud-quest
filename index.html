@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="AWSとAzureのサービス対応と構成設計を遊びながら覚える学習ゲーム">
+<title>クラウド設計クエスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 方眼紙に描いた設計図。上に階級バー、3モードをタブで切替、中央1カラム（最大780px） */
+:root{
+  --paper:#EDF2F5; --grid:rgba(31,84,128,.075); --ink:#132A3E; --muted:#56697B; --line:#C3D1DC; --card:#FFFFFF;
+  --aws:#A85A0B; --aws-soft:#FBEBD6; --az:#1D5FC0; --az-soft:#DDE8FA;
+  --ok:#1B7149; --ok-soft:#DCF0E4; --ng:#AE2F28; --ng-soft:#F8E1DE; --focus:#1D5FC0;
+  --f-display:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1925; --grid:rgba(120,170,215,.07); --ink:#E3ECF3; --muted:#93A7B9; --line:#2A3D50; --card:#152434;
+  --aws:#F0A24A; --aws-soft:#3A2A16; --az:#6EA6FF; --az-soft:#172C4B;
+  --ok:#5BD196; --ok-soft:#173A2A; --ng:#FF8A7E; --ng-soft:#432020; --focus:#6EA6FF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0E1925; --grid:rgba(120,170,215,.07); --ink:#E3ECF3; --muted:#93A7B9; --line:#2A3D50; --card:#152434;
+  --aws:#F0A24A; --aws-soft:#3A2A16; --az:#6EA6FF; --az-soft:#172C4B;
+  --ok:#5BD196; --ok-soft:#173A2A; --ng:#FF8A7E; --ng-soft:#432020; --focus:#6EA6FF; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65}
+.wrap{max-width:780px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:.02em}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;border-bottom:2px solid var(--ink);padding-bottom:14px}
+.brand h1{font-size:clamp(24px,6vw,34px);line-height:1.15}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.rank{min-width:0;flex:1 1 220px;max-width:300px}
+.rank .lbl{font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;font-family:var(--f-mono)}
+.rank .nm{font-weight:700;font-size:15px}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--aws),var(--az));transition:width .5s}
+.rank .xp{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin:18px 0 20px;overflow-x:auto}
+.tab{border:1.5px solid var(--ink);background:var(--card);padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+
+/* generic */
+.panel{background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:18px}
+.muted{color:var(--muted)}
+.btn{border:none;background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:8px;font-weight:700;font-size:15px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.04em}
+.tag.aws{background:var(--aws-soft);color:var(--aws)}
+.tag.az{background:var(--az-soft);color:var(--az)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+
+/* rally */
+.intro{display:grid;gap:16px}
+.intro h2{font-size:22px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.mode{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:4px}
+.mode:hover{border-color:var(--ink)}
+.mode b{font-size:16px}
+.mode span{font-size:13px;color:var(--muted)}
+.hud{display:flex;justify-content:space-between;gap:10px;font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;margin-bottom:8px;flex-wrap:wrap}
+.hud .combo{color:var(--aws);font-weight:700}
+.timer{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:16px}
+.timer>i{display:block;height:100%;background:var(--ink);width:100%}
+.q{display:grid;gap:14px}
+.q .kind{font-size:13px;color:var(--muted)}
+.q .prompt{font-size:clamp(20px,5vw,26px);font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.q .prompt.desc{font-size:18px;font-weight:500}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.opt{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;font-family:var(--f-mono);font-size:14px;font-weight:500;min-width:0;overflow-wrap:anywhere;transition:transform .08s}
+.opt:hover:not(:disabled){border-color:var(--ink);transform:translateY(-1px)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.opt.wrong{border-color:var(--ng);background:var(--ng-soft);color:var(--ng)}
+.explain{border-left:4px solid var(--ok);background:var(--card);padding:12px 14px;border-radius:0 8px 8px 0;display:grid;gap:6px}
+.explain.bad{border-left-color:var(--ng)}
+.explain .res{font-weight:700}
+.pair{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-family:var(--f-mono);font-size:13px}
+.pair .sep{color:var(--muted)}
+.pop{font-family:var(--f-mono);font-weight:700;color:var(--ok)}
+
+.result{display:grid;gap:16px;text-align:left}
+.bigscore{font-family:var(--f-display);font-size:52px;line-height:1;font-variant-numeric:tabular-nums}
+.stats{display:flex;gap:24px;flex-wrap:wrap}
+.stats div{display:grid}
+.stats b{font-family:var(--f-mono);font-size:20px;font-variant-numeric:tabular-nums}
+.stats span{font-size:12px;color:var(--muted)}
+.misslist{display:grid;gap:8px}
+.miss{border-top:1px dashed var(--line);padding-top:8px}
+
+/* design */
+.scen-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.scen{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:6px;align-content:start}
+.scen:hover{border-color:var(--ink)}
+.scen .t{font-weight:700;font-size:16px}
+.scen .s{font-size:13px;color:var(--muted)}
+.scen .meta{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.scen .done{color:var(--ok);font-weight:700}
+.stars{color:var(--aws);letter-spacing:1px}
+.dhead{display:grid;gap:8px;margin-bottom:14px}
+.dhead h2{font-size:22px}
+.req{background:var(--card);border:1.5px dashed var(--ink);border-radius:8px;padding:12px 14px;font-size:14px}
+.req ul{margin:6px 0 0;padding-left:1.2em}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden}
+.seg button{border:none;background:transparent;padding:6px 14px;font-weight:700;font-size:13px}
+.seg button[aria-pressed="true"].aws{background:var(--aws);color:var(--card)}
+.seg button[aria-pressed="true"].az{background:var(--az);color:var(--card)}
+
+.board{position:relative;border:2px dashed var(--muted);border-radius:12px;padding:30px 12px 14px;margin:14px 0}
+.board .zone{position:absolute;top:-10px;left:14px;background:var(--paper);padding:0 8px;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;color:var(--muted)}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:8px}
+.arrow{align-self:center;font-family:var(--f-mono);color:var(--muted);font-size:18px}
+.node{width:150px;min-height:96px;background:var(--card);border:2px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px;align-content:start;text-align:left}
+.node.user{border-style:dotted;background:transparent;width:auto;min-height:0;align-content:center;padding:8px 12px;font-weight:700}
+.node .role{font-size:12px;color:var(--muted);line-height:1.35}
+.node .pick{font-family:var(--f-mono);font-weight:700;font-size:13px;overflow-wrap:anywhere;line-height:1.3}
+.node .pick.empty{color:var(--muted);font-family:var(--f-display);font-size:20px;font-weight:400}
+.node.active{border-color:var(--ink);box-shadow:0 0 0 3px var(--grid)}
+.node.right{border-color:var(--ok);background:var(--ok-soft)}
+.node.wrong{border-color:var(--ng);background:var(--ng-soft)}
+.chooser{display:grid;gap:10px}
+.chooser .ask{font-weight:700}
+.dfoot{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-top:16px}
+.grade{display:grid;gap:10px;margin-top:16px}
+.gitem{background:var(--card);border:1.5px solid var(--line);border-left-width:5px;border-radius:8px;padding:12px 14px;display:grid;gap:6px}
+.gitem.ok{border-left-color:var(--ok)}
+.gitem.ng{border-left-color:var(--ng)}
+.gitem .hd{font-weight:700}
+.gitem p{margin:0;font-size:14px}
+
+/* dex */
+.dexbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:center}
+.dexbar input,.dexbar select{font:inherit;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:0}
+.dexbar input{flex:1 1 200px}
+.tablewrap{overflow-x:auto;background:var(--card);border:1.5px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--card)}
+td.n{font-family:var(--f-mono);font-weight:500;font-size:13px}
+td.n.a{color:var(--aws)} td.n.z{color:var(--az)}
+tr.weak td:first-child::before{content:"苦手 ";font-family:var(--f-mono);font-size:10px;font-weight:700;color:var(--ng)}
+.cat{font-size:12px;color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+
+@keyframes pop{0%{transform:scale(.9);opacity:0}100%{transform:scale(1);opacity:1}}
+.explain,.grade{animation:pop .2s ease-out}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:520px){
+  .flow{flex-direction:column;align-items:stretch}
+  .node{width:100%;min-height:0}
+  .arrow{transform:rotate(90deg);align-self:center;line-height:1}
+}
+</style>
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>クラウド設計クエスト</h1>
+      <p>AWS ⇄ Azure のサービス対応と構成設計を、遊びながら覚える</p>
+    </div>
+    <div class="rank" aria-live="polite">
+      <div class="lbl">Rank</div>
+      <div class="nm" id="rankName">見習いクラウドエンジニア</div>
+      <div class="bar"><i id="rankBar" style="width:0%"></i></div>
+      <div class="xp" id="rankXp">0 XP</div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-rally" aria-selected="true" data-view="rally">翻訳ラリー</button>
+    <button class="tab" role="tab" id="tab-design" aria-selected="false" data-view="design">設計チャレンジ</button>
+    <button class="tab" role="tab" id="tab-dex" aria-selected="false" data-view="dex">サービス図鑑</button>
+  </nav>
+
+  <main>
+    <section id="view-rally"></section>
+    <section id="view-design" hidden></section>
+    <section id="view-dex" hidden></section>
+  </main>
+</div>
+
+<script>
+/* ===== データ ===== */
+const SV = [
+ {id:'vm',cat:'コンピュート',aws:'Amazon EC2',az:'Azure Virtual Machines',d:'OSから自由に構成できる仮想サーバー。いわゆるIaaSの基本。'},
+ {id:'scale',cat:'コンピュート',aws:'EC2 Auto Scaling',az:'Virtual Machine Scale Sets',d:'負荷に応じて同じ構成の仮想サーバーを自動で増減させる。'},
+ {id:'func',cat:'コンピュート',aws:'AWS Lambda',az:'Azure Functions',d:'イベントをきっかけにコードだけを実行するサーバーレス関数。実行時間分だけ課金。'},
+ {id:'paas',cat:'コンピュート',aws:'AWS Elastic Beanstalk',az:'Azure App Service',d:'コードを置くだけでWebアプリを動かせるPaaS。OSやミドルウェアの管理を任せられる。'},
+ {id:'k8s',cat:'コンテナ',aws:'Amazon EKS',az:'Azure Kubernetes Service (AKS)',d:'マネージドなKubernetes。コントロールプレーンの運用をクラウド側が持つ。'},
+ {id:'ctrsl',cat:'コンテナ',aws:'Amazon ECS on Fargate',az:'Azure Container Apps',d:'サーバーを意識せずコンテナを動かせるサービス。ノード管理が不要。'},
+ {id:'reg',cat:'コンテナ',aws:'Amazon ECR',az:'Azure Container Registry',d:'コンテナイメージを保管するプライベートなレジストリ。'},
+ {id:'obj',cat:'ストレージ',aws:'Amazon S3',az:'Azure Blob Storage',d:'容量無制限に近いオブジェクトストレージ。静的ファイル配信やデータレイクの土台。'},
+ {id:'block',cat:'ストレージ',aws:'Amazon EBS',az:'Azure Managed Disks',d:'仮想サーバーにアタッチするブロックストレージ（仮想ディスク）。'},
+ {id:'file',cat:'ストレージ',aws:'Amazon EFS',az:'Azure Files',d:'複数サーバーから同時にマウントできる共有ファイルストレージ。'},
+ {id:'archive',cat:'ストレージ',aws:'Amazon S3 Glacier',az:'Blob Storage アーカイブ層',d:'めったに読まないデータを安く長期保管する。取り出しには時間がかかる。'},
+ {id:'backup',cat:'ストレージ',aws:'AWS Backup',az:'Azure Backup',d:'複数サービスのバックアップを一元管理し、保持期間をポリシーで決める。'},
+ {id:'rdb',cat:'データベース',aws:'Amazon RDS',az:'Azure SQL Database',d:'マネージドなリレーショナルDB。パッチ適用やバックアップを自動化できる。'},
+ {id:'nosql',cat:'データベース',aws:'Amazon DynamoDB',az:'Azure Cosmos DB',d:'大量アクセスでも低レイテンシのNoSQL（キーバリュー／ドキュメント）DB。'},
+ {id:'cache',cat:'データベース',aws:'Amazon ElastiCache',az:'Azure Cache for Redis',d:'インメモリキャッシュ。DBの前に置いて読み込みを高速化し、セッション保存にも使う。'},
+ {id:'dwh',cat:'分析',aws:'Amazon Redshift',az:'Azure Synapse Analytics',d:'大量データを集計・分析するためのデータウェアハウス。'},
+ {id:'stream',cat:'分析',aws:'Amazon Kinesis Data Streams',az:'Azure Event Hubs',d:'IoTやログなど、大量のストリームデータをリアルタイムに取り込む。'},
+ {id:'vnet',cat:'ネットワーク',aws:'Amazon VPC',az:'Azure Virtual Network',d:'クラウド上に作る自分専用の論理ネットワーク。サブネットやルートを定義する。'},
+ {id:'lb7',cat:'ネットワーク',aws:'Application Load Balancer',az:'Azure Application Gateway',d:'HTTP/HTTPS（L7）のロードバランサー。パスやホスト名で振り分けられる。'},
+ {id:'lb4',cat:'ネットワーク',aws:'Network Load Balancer',az:'Azure Load Balancer',d:'TCP/UDP（L4）のロードバランサー。高スループット・低レイテンシ。'},
+ {id:'cdn',cat:'ネットワーク',aws:'Amazon CloudFront',az:'Azure Front Door',d:'世界中のエッジでコンテンツをキャッシュして配信するCDN。'},
+ {id:'dns',cat:'ネットワーク',aws:'Amazon Route 53',az:'Azure DNS',d:'ドメイン名をIPアドレスに解決するマネージドDNS。'},
+ {id:'dx',cat:'ネットワーク',aws:'AWS Direct Connect',az:'Azure ExpressRoute',d:'オンプレミスとクラウドをインターネットを経由せず専用線でつなぐ。'},
+ {id:'vpn',cat:'ネットワーク',aws:'AWS Site-to-Site VPN',az:'Azure VPN Gateway',d:'インターネット越しに暗号化トンネルでオンプレミスと接続する。'},
+ {id:'apigw',cat:'アプリ連携',aws:'Amazon API Gateway',az:'Azure API Management',d:'APIの入口。認証、流量制限、バージョン管理をまとめて担う。'},
+ {id:'queue',cat:'アプリ連携',aws:'Amazon SQS',az:'Azure Service Bus',d:'メッセージキュー。送り手と受け手を切り離し、処理を非同期化・平準化する。'},
+ {id:'event',cat:'アプリ連携',aws:'Amazon EventBridge',az:'Azure Event Grid',d:'「何かが起きた」イベントを条件で振り分けて、別のサービスに届ける。'},
+ {id:'wf',cat:'アプリ連携',aws:'AWS Step Functions',az:'Azure Logic Apps',d:'複数の処理を順番・分岐・リトライ付きでつなぐワークフロー。'},
+ {id:'iam',cat:'セキュリティ',aws:'AWS IAM',az:'Microsoft Entra ID + Azure RBAC',d:'誰が・どのリソースに・何をできるかを管理するIDと権限の仕組み。'},
+ {id:'custid',cat:'セキュリティ',aws:'Amazon Cognito',az:'Microsoft Entra External ID',d:'アプリ利用者（顧客）向けのサインアップ・ログイン機能を提供する。'},
+ {id:'kms',cat:'セキュリティ',aws:'AWS KMS・Secrets Manager',az:'Azure Key Vault',d:'暗号鍵やパスワードなどのシークレットを安全に保管・ローテーションする。'},
+ {id:'waf',cat:'セキュリティ',aws:'AWS WAF',az:'Azure Web Application Firewall',d:'SQLインジェクションやXSSなど、Webアプリへの攻撃をL7で防ぐ。'},
+ {id:'ddos',cat:'セキュリティ',aws:'AWS Shield',az:'Azure DDoS Protection',d:'大量のトラフィックでサービスを止めるDDoS攻撃を緩和する。'},
+ {id:'threat',cat:'セキュリティ',aws:'Amazon GuardDuty',az:'Microsoft Defender for Cloud',d:'ログや通信を分析して、不審な動きや脅威を検知する。'},
+ {id:'mon',cat:'運用管理',aws:'Amazon CloudWatch',az:'Azure Monitor',d:'メトリクスやログを集めて可視化し、しきい値でアラームを出す。'},
+ {id:'audit',cat:'運用管理',aws:'AWS CloudTrail',az:'Azure アクティビティログ',d:'「誰がいつ何のAPIを操作したか」を記録する監査ログ。'},
+ {id:'iac',cat:'運用管理',aws:'AWS CloudFormation',az:'ARMテンプレート / Bicep',d:'インフラ構成をコードで書いて、同じ環境を何度でも再現する（IaC）。'},
+ {id:'org',cat:'運用管理',aws:'AWS Organizations',az:'Azure 管理グループ',d:'複数のアカウント／サブスクリプションを階層で束ね、ポリシーを一括適用する。'},
+ {id:'ml',cat:'AI',aws:'Amazon SageMaker AI',az:'Azure Machine Learning',d:'機械学習モデルの学習・デプロイ・運用をまとめて行う基盤。'},
+ {id:'genai',cat:'AI',aws:'Amazon Bedrock',az:'Azure AI Foundry',d:'生成AIの基盤モデルをAPIで呼び出し、アプリに組み込むためのサービス。'}
+];
+const BY = Object.fromEntries(SV.map(s=>[s.id,s]));
+
+const SCEN = [
+ {id:'static',lv:1,t:'キャンペーン用の静的サイト',s:'HTMLと画像だけのサイトを世界中に速く配信したい。',
+  req:['サーバーは管理したくない','アクセスが急増しても落ちない','独自ドメインで公開する'],zone:'GLOBAL',
+  slots:[
+   {id:'dns',role:'独自ドメインの名前解決',why:'まずDNSでドメインをCDNの配信先に向けます。'},
+   {id:'cdn',role:'世界中のエッジから配信',why:'CDNがエッジでキャッシュするので、急なアクセス増でもオリジンに負荷が集中しません。'},
+   {id:'obj',role:'HTML・画像の置き場所（オリジン）',why:'静的ファイルはオブジェクトストレージに置けばサーバー不要。CDNのオリジンにします。'}]},
+ {id:'3tier',lv:2,t:'社内向け3層Webアプリ',s:'注文管理システムをクラウドに移行。止まらない構成にしたい。',
+  req:['Webサーバーは負荷に応じて台数を増減','DBはリレーショナルで、運用はなるべく任せたい','よく読む商品マスタは高速に返したい'],zone:'REGION / 複数AZ',
+  slots:[
+   {id:'lb7',role:'HTTPSを受けて振り分け',why:'L7ロードバランサーで複数AZのWebサーバーに振り分け、ヘルスチェックで故障したサーバーを外します。'},
+   {id:'scale',role:'Web/APサーバー群の自動増減',why:'Auto Scaling（Scale Sets）で負荷に応じて台数を調整。AZをまたいで配置すると可用性が上がります。'},
+   {id:'cache',role:'商品マスタの高速読み出し',why:'インメモリキャッシュを挟むと、DBへの読み込みを減らしてレスポンスが速くなります。'},
+   {id:'rdb',role:'注文データの保存（RDB）',why:'マネージドRDBならマルチAZ構成・自動バックアップ・パッチ適用を任せられます。'}]},
+ {id:'svlessapi',lv:2,t:'スマホアプリ用サーバーレスAPI',s:'会員制アプリのバックエンドを最小の運用で作りたい。',
+  req:['会員登録・ログインが必要','使われた分だけ払いたい','アクセス数は読めない'],zone:'REGION',
+  slots:[
+   {id:'custid',role:'会員登録・ログイン',why:'顧客向けID基盤がトークンを発行し、APIの入口で検証します。自前で認証を作らずに済みます。'},
+   {id:'apigw',role:'APIの入口（認証・流量制限）',why:'APIゲートウェイでトークン検証やスロットリングをまとめて行い、裏の関数を守ります。'},
+   {id:'func',role:'ビジネスロジックの実行',why:'サーバーレス関数なら待機中は課金されず、アクセス増には自動でスケールします。'},
+   {id:'nosql',role:'ユーザーデータの保存',why:'サーバーレス構成と相性が良いのは、接続数を気にしなくてよいNoSQL DBです。'}]},
+ {id:'image',lv:3,t:'画像アップロードの非同期処理',s:'投稿された写真のサムネイルを自動生成したい。',
+  req:['アップロード直後にユーザーを待たせない','処理が詰まっても投稿は失わない','投稿の急増を平準化したい'],zone:'REGION',
+  slots:[
+   {id:'obj',role:'元画像のアップロード先',why:'画像はオブジェクトストレージへ直接アップロード。保存されたこと自体がイベントになります。'},
+   {id:'event',role:'「保存された」を検知して通知',why:'イベントルーターが保存イベントを拾い、条件に合うものだけを後続へ流します。'},
+   {id:'queue',role:'処理待ちを溜めておく',why:'キューに溜めることで急増を平準化でき、処理が失敗してもメッセージが残るので再実行できます。'},
+   {id:'func',role:'サムネイルを生成',why:'キューから取り出して関数で処理。並列数は自動で増減します。'}]},
+ {id:'iot',lv:3,t:'工場センサーのデータ分析',s:'数千台のセンサーから毎秒届くデータを集めて分析したい。',
+  req:['毎秒大量のデータを取りこぼさない','生データは安く長期保存','経営向けに集計レポートを作る'],zone:'REGION',
+  slots:[
+   {id:'stream',role:'大量のデータをリアルタイム受信',why:'ストリーム取り込みサービスはシャード／パーティションで書き込みを分散し、大量データを受け止めます。'},
+   {id:'func',role:'データの整形・変換',why:'受け取ったレコードを関数で整形し、保存しやすい形にします。'},
+   {id:'obj',role:'生データの長期保存（データレイク）',why:'オブジェクトストレージは安価で容量制限を気にせず保存でき、データレイクの土台になります。'},
+   {id:'dwh',role:'集計・レポート用の分析基盤',why:'データウェアハウスに取り込めば、大量データへのSQL集計が高速に行えます。'}]},
+ {id:'genai',lv:3,t:'社内向け生成AIチャット',s:'社員が使えるAIチャットを作り、会話履歴も残したい。',
+  req:['社員だけが使える','モデルは自前で学習しない','会話履歴をユーザーごとに保存'],zone:'REGION',
+  slots:[
+   {id:'iam',role:'社員の認証と権限',why:'社員向けなら組織のID基盤（IAM / Entra ID）で認証・認可します。顧客向けID基盤とは使い分けます。'},
+   {id:'func',role:'プロンプト組み立て・API呼び出し',why:'関数で履歴を読み込み、プロンプトを組み立てて生成AIのAPIを呼びます。'},
+   {id:'genai',role:'基盤モデルで文章を生成',why:'学習済みの基盤モデルをAPIで使えるマネージドサービスを選びます。自前学習なら機械学習基盤の出番です。'},
+   {id:'nosql',role:'会話履歴の保存',why:'ユーザーIDをキーにした履歴はNoSQL DBが扱いやすく、読み書きも高速です。'}]},
+ {id:'hybrid',lv:3,t:'オンプレミスとのハイブリッド接続',s:'本社データセンターとクラウドを安定した回線でつなぎたい。',
+  req:['帯域と遅延を安定させたい','クラウド側は閉じたネットワークに','操作は社員の権限で制御し、状態を監視'],zone:'ON-PREM ⇄ REGION',
+  slots:[
+   {id:'dx',role:'オンプレとの専用線接続',why:'インターネットを通らない専用線接続で、帯域と遅延が安定します。バックアップ回線にVPNを併用するのが定番です。'},
+   {id:'vnet',role:'クラウド側の閉じたネットワーク',why:'VPC / VNetでIPアドレス帯やサブネットを設計し、オンプレと重複しないようにします。'},
+   {id:'iam',role:'誰が何を操作できるか',why:'IDと権限の基盤で最小権限を設定します。'},
+   {id:'mon',role:'メトリクス監視とアラート',why:'監視サービスで回線やリソースの状態を可視化し、異常時に通知します。'}]},
+ {id:'container',lv:4,t:'コンテナで動くマイクロサービス',s:'複数チームが開発するサービス群をKubernetesで運用したい。',
+  req:['イメージは社外に公開しない','HTTPのパスで各サービスへ振り分け','DBパスワードはコードに書かない','ログとメトリクスを一元管理'],zone:'REGION / 複数AZ',
+  slots:[
+   {id:'reg',role:'コンテナイメージの保管',why:'プライベートなコンテナレジストリにイメージを置き、クラスターから取得します。'},
+   {id:'lb7',role:'パスで各サービスに振り分け',why:'/orders、/users のようなパスベースの振り分けはL7ロードバランサーの役割です。'},
+   {id:'k8s',role:'コンテナのオーケストレーション',why:'マネージドKubernetesで、コントロールプレーンの運用をクラウドに任せます。'},
+   {id:'kms',role:'DBパスワードなどの秘密情報',why:'シークレットは専用の保管庫に置き、実行時に取得します。コードやイメージに埋め込みません。'},
+   {id:'mon',role:'ログ・メトリクスの一元管理',why:'監視サービスでクラスター全体のログとメトリクスを集約します。'}]},
+ {id:'security',lv:4,t:'ECサイトのセキュリティ強化',s:'攻撃が増えてきたECサイトの守りを固めたい。',
+  req:['SQLインジェクション等を入口で止める','大量アクセス攻撃に耐える','不審な動きを自動で検知','誰が何を操作したか追える'],zone:'GLOBAL + REGION',
+  slots:[
+   {id:'ddos',role:'DDoS攻撃の緩和',why:'ネットワーク層の大量トラフィックはDDoS対策サービスで吸収・緩和します。'},
+   {id:'waf',role:'Webアプリ攻撃の遮断',why:'WAFでSQLインジェクションやXSSなどアプリ層の攻撃パターンを入口でブロックします。'},
+   {id:'threat',role:'脅威の自動検知',why:'脅威検知サービスはログや通信を分析して、不審なAPI呼び出しや通信を知らせます。'},
+   {id:'audit',role:'操作の監査ログ',why:'監査ログで「誰が・いつ・何を」したかを追跡。インシデント調査の起点になります。'}]}
+];
+
+const RANKS = [[0,'見習いクラウドエンジニア'],[500,'ジュニアエンジニア'],[1500,'アソシエイト'],[4000,'プロフェッショナル'],[8000,'ソリューションアーキテクト'],[15000,'チーフアーキテクト']];
+
+/* ===== 状態 ===== */
+const KEY='cloudquest.v1';
+let ST={xp:0,weak:{},best:{},rallyBest:0};
+try{const raw=localStorage.getItem(KEY); if(raw) ST=Object.assign(ST,JSON.parse(raw));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(ST));}catch(e){}}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const nm=(s,c)=>c==='aws'?s.aws:s.az;
+const ctag=c=>c==='aws'?'<span class="tag aws">AWS</span>':'<span class="tag az">Azure</span>';
+
+function renderRank(){
+  let cur=RANKS[0],next=null;
+  for(let i=0;i<RANKS.length;i++){if(ST.xp>=RANKS[i][0]){cur=RANKS[i];next=RANKS[i+1]||null;}}
+  $('#rankName').textContent=cur[1];
+  const pct=next?((ST.xp-cur[0])/(next[0]-cur[0]))*100:100;
+  $('#rankBar').style.width=Math.min(100,pct)+'%';
+  $('#rankXp').textContent=next?`${ST.xp.toLocaleString()} XP ／ 次の階級まで ${(next[0]-ST.xp).toLocaleString()}`:`${ST.xp.toLocaleString()} XP ／ 最高階級`;
+}
+function addXp(n){ST.xp+=n;save();renderRank();}
+
+/* 選択肢：同カテゴリ優先で誤答を3つ */
+function distractors(item,n,cloud){
+  const same=shuffle(SV.filter(s=>s.id!==item.id&&s.cat===item.cat));
+  const other=shuffle(SV.filter(s=>s.id!==item.id&&s.cat!==item.cat));
+  const out=[],seen=new Set([nm(item,cloud)]);
+  for(const s of same.concat(other)){if(out.length>=n)break;const k=nm(s,cloud);if(!seen.has(k)){seen.add(k);out.push(s);}}
+  return out;
+}
+
+/* ===== タブ ===== */
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+function showView(v){
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));
+  ['rally','design','dex'].forEach(x=>$('#view-'+x).hidden=x!==v);
+  stopTimer();
+  if(v==='rally')rallyHome(); if(v==='design')designHome(); if(v==='dex')dex();
+}
+
+/* ===== 翻訳ラリー ===== */
+const LIMIT=20; let R=null,timerId=null;
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
+
+function rallyHome(){
+  const weakN=Object.keys(ST.weak).length;
+  $('#view-rally').innerHTML=`
+  <div class="intro">
+    <div><div class="eyebrow">Mode 01</div><h2>翻訳ラリー</h2>
+    <p class="muted" style="margin:6px 0 0">AWSとAzureの「同じ役割のサービス」を素早く答える10問勝負。連続正解でコンボ、早く答えるほどボーナス。</p></div>
+    <div class="modes">
+      <button class="mode" data-m="mix"><b>ミックス</b><span>AWS→Azure、Azure→AWS、説明→サービスがランダムに出題</span></button>
+      <button class="mode" data-m="a2z"><b>AWS → Azure</b><span>AWSを知っている人がAzureを覚える</span></button>
+      <button class="mode" data-m="z2a"><b>Azure → AWS</b><span>Azureの名前からAWSを答える</span></button>
+      <button class="mode" data-m="desc"><b>説明 → サービス</b><span>役割の説明から名前を当てる。資格試験の形式に近い</span></button>
+      <button class="mode" data-m="weak" ${weakN?'':'disabled style="opacity:.45;cursor:not-allowed"'}><b>苦手だけ復習</b><span>${weakN?`間違えた ${weakN} サービスから出題`:'間違えたサービスがここに溜まります'}</span></button>
+    </div>
+    <p class="muted mono" style="font-size:12px;margin:0">ベストスコア ${ST.rallyBest.toLocaleString()} ／ 収録 ${SV.length} サービス</p>
+  </div>`;
+  $('#view-rally').querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)startRally(b.dataset.m);}));
+}
+
+function makeQ(item,type){
+  if(type==='mix'||type==='weak')type=shuffle(['a2z','z2a','desc'])[0];
+  let cloud,prompt,kind,pc;
+  if(type==='a2z'){cloud='az';prompt=item.aws;pc='aws';kind='このAWSサービスに相当するAzureサービスは？';}
+  else if(type==='z2a'){cloud='aws';prompt=item.az;pc='az';kind='このAzureサービスに相当するAWSサービスは？';}
+  else{cloud=Math.random()<.5?'aws':'az';prompt=item.d;pc=null;kind=`この説明に当てはまる ${cloud==='aws'?'AWS':'Azure'} のサービスは？`;}
+  const opts=shuffle([item,...distractors(item,3,cloud)]);
+  return {item,type,cloud,prompt,pc,kind,opts};
+}
+function startRally(mode){
+  let pool=mode==='weak'?SV.filter(s=>ST.weak[s.id]):SV;
+  let items=shuffle(pool);
+  while(items.length<10)items=items.concat(shuffle(pool));
+  R={mode,qs:items.slice(0,10).map(it=>makeQ(it,mode)),i:0,score:0,combo:0,maxCombo:0,correct:0,missed:[]};
+  renderQ();
+}
+function renderQ(){
+  const q=R.qs[R.i];
+  $('#view-rally').innerHTML=`
+   <div class="hud"><span>Q ${R.i+1} / ${R.qs.length}</span><span class="combo" id="combo">${R.combo>1?R.combo+' COMBO':''}</span><span>${R.score.toLocaleString()} pt</span></div>
+   <div class="timer"><i id="tbar"></i></div>
+   <div class="q">
+     <div class="kind">${esc(q.kind)}</div>
+     <div class="prompt ${q.pc?'':'desc'}">${q.pc?ctag(q.pc)+' ':''}${esc(q.prompt)}</div>
+     <div class="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}">${esc(nm(o,q.cloud))}</button>`).join('')}</div>
+     <div id="fb"></div>
+   </div>`;
+  $('#view-rally').querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>answer(+b.dataset.k)));
+  const t0=Date.now(); const bar=$('#tbar'); stopTimer();
+  q.t0=t0;
+  timerId=setInterval(()=>{const left=Math.max(0,LIMIT-(Date.now()-t0)/1000);bar.style.width=(left/LIMIT*100)+'%';if(left<=0){answer(-1);}},100);
+}
+function answer(k){
+  stopTimer();
+  const q=R.qs[R.i]; if(q.done)return; q.done=true;
+  const left=Math.max(0,LIMIT-(Date.now()-q.t0)/1000);
+  const btns=[...$('#view-rally').querySelectorAll('.opt')];
+  const ci=q.opts.indexOf(q.item);
+  btns.forEach(b=>b.disabled=true);
+  btns[ci].classList.add('right');
+  const ok=k===ci; let gain=0;
+  if(ok){R.combo++;R.maxCombo=Math.max(R.maxCombo,R.combo);R.correct++;gain=100+Math.round(left/LIMIT*50)+(R.combo-1)*20;R.score+=gain;delete ST.weak[q.item.id];}
+  else{R.combo=0;if(k>=0)btns[k].classList.add('wrong');R.missed.push(q.item);ST.weak[q.item.id]=1;}
+  save();
+  const it=q.item;
+  $('#fb').innerHTML=`<div class="explain ${ok?'':'bad'}">
+     <div class="res">${ok?`正解 <span class="pop">+${gain}</span>`:(k<0?'時間切れ':'不正解')}</div>
+     <div class="pair">${ctag('aws')} ${esc(it.aws)} <span class="sep">⇄</span> ${ctag('az')} ${esc(it.az)}</div>
+     <div style="font-size:14px">${esc(it.d)}</div>
+     <div><button class="btn" id="next">${R.i+1<R.qs.length?'次の問題':'結果を見る'}</button></div></div>`;
+  $('#combo').textContent=R.combo>1?R.combo+' COMBO':'';
+  const nx=$('#next'); nx.focus({preventScroll:true});
+  nx.addEventListener('click',()=>{R.i++; if(R.i<R.qs.length)renderQ(); else rallyEnd();});
+}
+function rallyEnd(){
+  const xp=Math.round(R.score/5); addXp(xp);
+  const isBest=R.score>ST.rallyBest; if(isBest){ST.rallyBest=R.score;save();}
+  const uniq=[...new Map(R.missed.map(m=>[m.id,m])).values()];
+  $('#view-rally').innerHTML=`<div class="panel result">
+    <div class="eyebrow">Result${isBest?' ・ ベスト更新':''}</div>
+    <div class="bigscore">${R.score.toLocaleString()}<span style="font-size:18px"> pt</span></div>
+    <div class="stats"><div><b>${R.correct}/10</b><span>正解</span></div><div><b>${R.maxCombo}</b><span>最大コンボ</span></div><div><b>+${xp}</b><span>獲得XP</span></div></div>
+    ${uniq.length?`<div><h3 style="font-size:16px;margin-bottom:6px">復習リスト</h3><div class="misslist">${uniq.map(m=>`<div class="miss"><div class="pair">${ctag('aws')} ${esc(m.aws)} <span class="sep">⇄</span> ${ctag('az')} ${esc(m.az)}</div><div style="font-size:13px" class="muted">${esc(m.d)}</div></div>`).join('')}</div></div>`:'<p style="margin:0">全問正解。設計チャレンジで組み合わせ方も試してみましょう。</p>'}
+    <div class="row"><button class="btn" id="again">もう一度</button><button class="btn ghost" id="home">モード選択へ</button></div>
+  </div>`;
+  $('#again').addEventListener('click',()=>startRally(R.mode));
+  $('#home').addEventListener('click',rallyHome);
+}
+
+/* ===== 設計チャレンジ ===== */
+let D=null;
+function designHome(){
+  $('#view-design').innerHTML=`
+   <div class="intro">
+    <div><div class="eyebrow">Mode 02</div><h2>設計チャレンジ</h2>
+    <p class="muted" style="margin:6px 0 0">要件を読んで、構成図の空欄にサービスを当てはめる。AWSとAzureはいつでも切り替えられるので、同じ設計を両方の言葉で確認できます。</p></div>
+    <div class="scen-list">${SCEN.map(s=>{const b=ST.best[s.id];return `<button class="scen" data-id="${s.id}">
+      <div class="meta"><span class="stars" aria-label="難易度${s.lv}">${'★'.repeat(s.lv)}${'☆'.repeat(4-s.lv)}</span>${b!=null?`<span class="${b===s.slots.length?'done':''}">${b===s.slots.length?'クリア':'ベスト'} ${b}/${s.slots.length}</span>`:'<span>未挑戦</span>'}</div>
+      <div class="t">${esc(s.t)}</div><div class="s">${esc(s.s)}</div></button>`}).join('')}</div>
+   </div>`;
+  $('#view-design').querySelectorAll('.scen').forEach(b=>b.addEventListener('click',()=>startDesign(b.dataset.id)));
+}
+function startDesign(id){
+  const sc=SCEN.find(s=>s.id===id);
+  D={sc,cloud:D?D.cloud:'aws',active:0,pick:{},graded:false,
+     opts:sc.slots.map(sl=>shuffle([BY[sl.id],...distractors(BY[sl.id],3,'aws').filter(x=>x)]).map(x=>x.id))};
+  renderDesign();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderDesign(){
+  const {sc,cloud}=D;
+  const nodes=sc.slots.map((sl,i)=>{
+    const p=D.pick[i]; let cls='node';
+    if(D.graded)cls+=p===sl.id?' right':' wrong'; else if(i===D.active)cls+=' active';
+    return `<button class="${cls}" data-i="${i}" ${D.graded?'':''}>
+      <span class="role">${esc(sl.role)}</span>
+      <span class="pick ${p?'':'empty'}">${p?esc(nm(BY[p],cloud)):'？'}</span></button>`;
+  });
+  const flow=['<div class="node user">利用者</div>',...nodes].join('<span class="arrow" aria-hidden="true">→</span>');
+  const filled=Object.keys(D.pick).length===sc.slots.length;
+  const act=sc.slots[D.active];
+  $('#view-design').innerHTML=`
+   <div class="dhead">
+     <div class="row" style="justify-content:space-between"><button class="btn ghost" id="back" style="padding:6px 12px;font-size:13px">← シナリオ一覧</button>
+       <div class="seg" role="group" aria-label="表示するクラウド"><button class="aws" data-c="aws" aria-pressed="${cloud==='aws'}">AWS</button><button class="az" data-c="az" aria-pressed="${cloud==='az'}">Azure</button></div></div>
+     <div class="eyebrow">難易度 <span class="stars">${'★'.repeat(sc.lv)}</span></div>
+     <h2>${esc(sc.t)}</h2>
+     <div class="req"><b>要件</b>　${esc(sc.s)}<ul>${sc.req.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>
+   </div>
+   <div class="board"><span class="zone">${esc(sc.zone)}</span><div class="flow">${flow}</div></div>
+   ${D.graded?'':`<div class="panel chooser">
+      <div class="ask">「${esc(act.role)}」に置くサービスは？</div>
+      <div class="opts">${D.opts[D.active].map(id=>`<button class="opt" data-id="${id}" ${D.pick[D.active]===id?'style="border-color:var(--ink)"':''}>${esc(nm(BY[id],cloud))}</button>`).join('')}</div>
+   </div>`}
+   <div class="dfoot">
+     <span class="muted mono" style="font-size:12px">${Object.keys(D.pick).length} / ${sc.slots.length} 配置済み</span>
+     ${D.graded?`<div class="row"><button class="btn" id="retry">もう一度</button><button class="btn ghost" id="toList">ほかのシナリオ</button></div>`:`<button class="btn" id="grade" ${filled?'':'disabled'}>この構成で採点</button>`}
+   </div>
+   <div id="gradeOut"></div>`;
+  $('#back').addEventListener('click',designHome);
+  $('#view-design').querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{D.cloud=b.dataset.c;renderDesign();}));
+  $('#view-design').querySelectorAll('.flow .node[data-i]').forEach(b=>b.addEventListener('click',()=>{if(D.graded)return;D.active=+b.dataset.i;renderDesign();}));
+  $('#view-design').querySelectorAll('.chooser .opt').forEach(b=>b.addEventListener('click',()=>{
+    D.pick[D.active]=b.dataset.id;
+    const nextEmpty=sc.slots.findIndex((_,i)=>!D.pick[i]);
+    if(nextEmpty>=0)D.active=nextEmpty;
+    renderDesign();
+  }));
+  if(D.graded){showGrade();$('#retry').addEventListener('click',()=>startDesign(sc.id));$('#toList').addEventListener('click',designHome);}
+  else $('#grade').addEventListener('click',()=>{D.graded=true;
+    const n=sc.slots.filter((sl,i)=>D.pick[i]===sl.id).length;
+    const xp=n*60+(n===sc.slots.length?sc.lv*50:0); D.xp=xp; addXp(xp);
+    sc.slots.forEach((sl,i)=>{if(D.pick[i]!==sl.id)ST.weak[sl.id]=1;});
+    ST.best[sc.id]=Math.max(ST.best[sc.id]||0,n); save();
+    renderDesign();
+  });
+}
+function showGrade(){
+  const {sc}=D; const n=sc.slots.filter((sl,i)=>D.pick[i]===sl.id).length;
+  $('#gradeOut').innerHTML=`<div class="grade">
+    <div class="panel row" style="justify-content:space-between"><div><div class="eyebrow">Review</div><div class="bigscore" style="font-size:36px">${n} / ${sc.slots.length}</div></div><div class="mono" style="font-weight:700">+${D.xp} XP${n===sc.slots.length?'<br><span style="color:var(--ok)">完璧な設計</span>':''}</div></div>
+    ${sc.slots.map((sl,i)=>{const ok=D.pick[i]===sl.id;const a=BY[sl.id];const p=BY[D.pick[i]];
+      return `<div class="gitem ${ok?'ok':'ng'}"><div class="hd">${ok?'○':'×'} ${esc(sl.role)}</div>
+        ${ok?'':`<p class="muted">あなたの回答：${esc(p.aws)} / ${esc(p.az)}</p>`}
+        <div class="pair">${ctag('aws')} ${esc(a.aws)} <span class="sep">⇄</span> ${ctag('az')} ${esc(a.az)}</div>
+        <p>${esc(sl.why)}</p></div>`}).join('')}
+  </div>`;
+}
+
+/* ===== 図鑑 ===== */
+let dexQ='',dexCat='',dexWeak=false;
+function dex(){
+  const cats=[...new Set(SV.map(s=>s.cat))];
+  $('#view-dex').innerHTML=`
+   <div class="dexbar">
+     <input id="dq" type="search" placeholder="サービス名や役割で検索（例：キュー、Lambda）" value="${esc(dexQ)}" aria-label="検索">
+     <select id="dc" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option>${cats.map(c=>`<option ${c===dexCat?'selected':''}>${c}</option>`).join('')}</select>
+     <label class="row" style="gap:6px;font-size:14px"><input type="checkbox" id="dw" ${dexWeak?'checked':''}> 苦手のみ</label>
+   </div>
+   <div class="tablewrap"><table><thead><tr><th>役割</th><th>AWS</th><th>Azure</th></tr></thead><tbody id="dbody"></tbody></table></div>
+   <p class="note">対応関係は学習用の目安です。機能範囲が完全に一致するわけではありません（例：RDSのMySQL/PostgreSQLはAzure Database for MySQL/PostgreSQLが近い。Key Vaultは鍵とシークレットの両方を扱う）。</p>`;
+  const draw=()=>{
+    const q=dexQ.toLowerCase();
+    const rows=SV.filter(s=>(!dexCat||s.cat===dexCat)&&(!dexWeak||ST.weak[s.id])&&(!q||(s.aws+s.az+s.d+s.cat).toLowerCase().includes(q)));
+    $('#dbody').innerHTML=rows.length?rows.map(s=>`<tr class="${ST.weak[s.id]?'weak':''}"><td><div>${esc(s.d)}</div><div class="cat">${esc(s.cat)}</div></td><td class="n a">${esc(s.aws)}</td><td class="n z">${esc(s.az)}</td></tr>`).join(''):`<tr><td colspan="3" class="muted">該当するサービスはありません${dexWeak?'。ラリーや設計チャレンジで間違えたサービスがここに表示されます':''}</td></tr>`;
+  };
+  $('#dq').addEventListener('input',e=>{dexQ=e.target.value;draw();});
+  $('#dc').addEventListener('change',e=>{dexCat=e.target.value;draw();});
+  $('#dw').addEventListener('change',e=>{dexWeak=e.target.checked;draw();});
+  draw();
+}
+
+renderRank(); rallyHome();
+</script>
+
+</body>
+</html>
