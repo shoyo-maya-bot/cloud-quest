@@ -29,7 +29,7 @@
 
 *{box-sizing:border-box}
 body{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65}
-.wrap{max-width:780px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
 h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:.02em}
 button{font:inherit;color:inherit;cursor:pointer}
 button:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -79,9 +79,13 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline
 .q .kind{font-size:13px;color:var(--muted)}
 .q .prompt{font-size:clamp(20px,5vw,26px);font-weight:700;line-height:1.35;overflow-wrap:anywhere}
 .q .prompt.desc{font-size:18px;font-weight:500}
-.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
-.opt{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;font-family:var(--f-mono);font-size:14px;font-weight:500;min-width:0;overflow-wrap:anywhere;transition:transform .08s}
-.opt:hover:not(:disabled){border-color:var(--ink);transform:translateY(-1px)}
+.opts{display:grid;grid-template-columns:1fr;gap:10px;counter-reset:opt}
+.opt{display:flex;align-items:center;gap:14px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:14px 16px;font-family:var(--f-mono);font-size:15px;font-weight:500;min-width:0;overflow-wrap:anywhere;transition:transform .08s,border-color .08s;counter-increment:opt}
+.opt::before{content:counter(opt);flex:none;display:grid;place-items:center;width:28px;height:28px;border:1.5px solid var(--line);border-radius:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.opt.right::before{border-color:var(--ok);color:var(--ok)}
+.opt.wrong::before{border-color:var(--ng);color:var(--ng)}
+.keyhint{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.opt:hover:not(:disabled){border-color:var(--ink);transform:translateX(3px)}
 .opt:disabled{cursor:default}
 .opt.right{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
 .opt.wrong{border-color:var(--ng);background:var(--ng-soft);color:var(--ng)}
@@ -158,6 +162,17 @@ tr.weak td:first-child::before{content:"苦手 ";font-family:var(--f-mono);font-
 @keyframes pop{0%{transform:scale(.9);opacity:0}100%{transform:scale(1);opacity:1}}
 .explain,.grade{animation:pop .2s ease-out}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (min-width:900px){
+  body{font-size:16px}
+  .wrap{padding-block:40px 64px}
+  .q{gap:20px}
+  .q .prompt{font-size:30px}
+  .q .prompt.desc{font-size:22px}
+  .opt{padding:18px 20px;font-size:17px}
+  .opt::before{width:32px;height:32px}
+  .timer{margin-bottom:28px}
+}
+@media (hover:none){.keyhint{display:none}}
 @media (max-width:520px){
   .flow{flex-direction:column;align-items:stretch}
   .node{width:100%;min-height:0}
@@ -395,6 +410,7 @@ function renderQ(){
      <div class="kind">${esc(q.kind)}</div>
      <div class="prompt ${q.pc?'':'desc'}">${q.pc?ctag(q.pc)+' ':''}${esc(q.prompt)}</div>
      <div class="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}">${esc(nm(o,q.cloud))}</button>`).join('')}</div>
+     <div class="keyhint">キーボードの 1〜4 で回答、Enter で次へ</div>
      <div id="fb"></div>
    </div>`;
   $('#view-rally').querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>answer(+b.dataset.k)));
@@ -542,6 +558,12 @@ function dex(){
   draw();
 }
 
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  const view=['rally','design'].find(v=>!$('#view-'+v).hidden); if(!view)return;
+  const n=parseInt(e.key,10);
+  if(n>=1&&n<=4){const b=$('#view-'+view).querySelectorAll('.opts .opt:not(:disabled)')[n-1]; if(b){e.preventDefault();b.click();}}
+});
 renderRank(); rallyHome();
 </script>
 

@@ -1,7 +1,9 @@
 # クラウド設計クエスト
 
 AWS と Azure のサービス対応と、クラウドの構成設計を遊びながら覚えるブラウザゲームです。
-インストール不要で、`index.html` をブラウザで開くだけで遊べます。
+インストール不要で、ブラウザだけで遊べます。
+
+**▶ 今すぐ遊ぶ：https://shoyo-maya-bot.github.io/cloud-quest/**
 
 ## 遊び方
 
@@ -11,6 +13,7 @@ AWS と Azure のサービス対応と、クラウドの構成設計を遊びな
 | 設計チャレンジ | 要件を読んで、構成図の空欄にサービスを当てはめる。採点後に各配置の理由を表示。AWS表示とAzure表示はいつでも切替可能 |
 | サービス図鑑 | 収録サービスの対応表。キーワード検索、カテゴリ絞り込み、苦手のみ表示ができる |
 
+- PCではキーボードの 1〜4 で回答、Enter で次の問題へ進めます。
 - 間違えたサービスは「苦手」として記録され、翻訳ラリーの「苦手だけ復習」で集中的に出題されます。
 - 獲得XPに応じて階級が上がります。
 - 進捗はブラウザの localStorage に保存されます。サーバーには何も送信しません。
@@ -26,16 +29,20 @@ AWS と Azure のサービス対応と、クラウドの構成設計を遊びな
 
 ## 使い方
 
-### ブラウザで開く
+### Webで遊ぶ
+
+https://shoyo-maya-bot.github.io/cloud-quest/ を開くだけです。
+
+### ダウンロードして遊ぶ
 
 1. このリポジトリをダウンロード（Code → Download ZIP）または clone します。
 2. `index.html` をブラウザで開きます。
 
 フォントは Google Fonts から読み込みます。オフライン環境ではOS標準のフォントで表示されます。
 
-### GitHub Pages で公開する
+### 自分の GitHub Pages で公開する
 
-リポジトリの Settings → Pages で、Source を「Deploy from a branch」、Branch を `main` / `/ (root)` にすると、URLを共有するだけで誰でも遊べます。
+フォークしたリポジトリの Settings → Pages で、Source を「Deploy from a branch」、Branch を `main` / `/ (root)` にすると、自分用のURLで公開できます。
 
 ## 問題を追加する
 
